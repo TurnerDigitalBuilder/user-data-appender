@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organization Chart Visualizer with ChatGPT License Tracking</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <h1>Organization Chart Visualizer</h1>
+      <button class="btn btn-secondary" onclick="toggleDarkMode()">🌙 Dark Mode</button>
+    </header>
+    
+    <div class="main-content">
+      <!-- Setup Panel -->
+      <div class="setup-panel" id="setupPanel">
+        
+        <!-- Collapsible Load Section -->
+        <div class="collapsible-section">
+          <div class="collapsible-header" onclick="toggleSection('loadSection')">
+            <span class="collapse-icon" id="loadSectionIcon">▼</span>
+            <h3 style="margin: 0;">Load Organization Data</h3>
+          </div>
+          
+          <div class="collapsible-content" id="loadSection">
+            <!-- Step 1: Graph Token -->
+            <div class="wizard-step">
+              <h3>
+                <span class="step-number" id="step1Number">1</span>
+                Microsoft Graph Token
+              </h3>
+              
+              <div class="help-info">
+                <h4>How to get your Graph Token:</h4>
+                <ol>
+                  <li>Go to <a href="https://developer.microsoft.com/en-us/graph/graph-explorer" target="_blank">Microsoft Graph Explorer</a></li>
+                  <li>Sign in with your Microsoft work account</li>
+                  <li>Click "Access Token" tab on the left</li>
+                  <li>Copy the entire token and paste it below</li>
+                </ol>
+              </div>
+              
+              <div class="form-group">
+                <label for="graphToken">Access Token:</label>
+                <textarea id="graphToken" placeholder="Paste your Microsoft Graph access token here..."></textarea>
+              </div>
+            </div>
+            
+            <!-- Step 2: Starting Point -->
+            <div class="wizard-step">
+              <h3>
+                <span class="step-number" id="step2Number">2</span>
+                Starting User
+              </h3>
+              
+              <div class="form-group">
+                <label for="startingEmail">Starting User Email:</label>
+                <div style="position: relative;">
+                  <input type="email" id="startingEmail" placeholder="user@company.com" list="emailHistory">
+                  <datalist id="emailHistory"></datalist>
+                  <button type="button" class="btn-clear-history" onclick="GraphAPI.clearEmailHistory()" title="Clear email history">
+                    ✕
+                  </button>
+                </div>
+                <small style="color: var(--text-light); display: block; margin-top: 0.25rem;">
+                  Start typing or select from previous searches
+                </small>
+              </div>
+              
+              <div class="form-group">
+                <label for="maxDepth">Hierarchy Depth:</label>
+                <select id="maxDepth">
+                  <option value="2">1-2 Levels (Direct reports)</option>
+                  <option value="3">2-3 Levels (Direct reports + their teams)</option>
+                  <option value="4" selected>3-5 Levels (Team structure)</option>
+                  <option value="999">Unlimited (Full hierarchy)</option>
+                </select>
+                <small style="color: var(--text-light); display: block; margin-top: 0.25rem;">
+                  Controls how many levels deep to fetch in the organization
+                </small>
+              </div>
+              
+              <div class="form-group">
+                <label for="maxUsers">Maximum Users to Fetch:</label>
+                <input type="number" id="maxUsers" value="100" min="10" max="500">
+                <small style="color: var(--text-light); display: block; margin-top: 0.25rem;">
+                  Safety limit to prevent excessive API calls
+                </small>
+              </div>
+            </div>
+            
+            <!-- Step 3: License CSV -->
+            <div class="wizard-step">
+              <h3>
+                <span class="step-number" id="step3Number">3</span>
+                ChatGPT License List (Optional)
+              </h3>
+              
+              <div class="file-upload" id="csvUpload">
+                <input type="file" id="csvFile" accept=".csv">
+                <label class="file-upload-label" for="csvFile">
+                  📁 Click to upload CSV with licensed emails<br>
+                  <small>Format: Single column with 'email' header</small>
+                </label>
+              </div>
+              
+              <div id="csvStatus"></div>
+            </div>
+            
+            <!-- Step 4: Fetch Data -->
+            <div class="wizard-step">
+              <h3>
+                <span class="step-number" id="step4Number">4</span>
+                Fetch Organization Data
+              </h3>
+              
+              <button class="btn btn-primary" onclick="GraphAPI.fetchOrgData()" id="fetchButton">
+                🔄 Fetch Organization Data
+              </button>
+              
+              <div id="fetchProgress" class="progress-container" style="display: none;">
+                <div class="progress-bar">
+                  <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">Initializing...</div>
+              </div>
+              
+              <div id="fetchStatus"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Statistics Section (Always Visible) -->
+        <div class="wizard-step" id="statsSection" style="display: none;">
+          <h3>📊 Statistics</h3>
+          <div id="statsContent"></div>
+        </div>
+        
+        <!-- Chart Controls Section -->
+        <div class="collapsible-section" id="chartControlsSection" style="display: none;">
+          <div class="collapsible-header" onclick="toggleSection('controlsContent')">
+            <span class="collapse-icon" id="controlsContentIcon">▼</span>
+            <h3 style="margin: 0;">Chart Controls</h3>
+          </div>
+          
+          <div class="collapsible-content" id="controlsContent">
+            <div class="controls-panel">
+              <div class="control-group-vertical">
+                <label>Color By:</label>
+                <select id="colorBy" onchange="OrgChart.updateVisualization()">
+                  <option value="department">Department</option>
+                  <option value="license" selected>ChatGPT License</option>
+                  <option value="level">Hierarchy Level</option>
+                </select>
+              </div>
+              
+              <div class="control-group-vertical">
+                <label for="filterNoDept" style="display: flex; align-items: center; gap: 0.5rem;">
+                  <input type="checkbox" id="filterNoDept" checked style="width: auto;">
+                  Hide No Department
+                </label>
+              </div>
+              
+              <div class="control-group-vertical">
+                <label for="filterInterns" style="display: flex; align-items: center; gap: 0.5rem;">
+                  <input type="checkbox" id="filterInterns" checked style="width: auto;">
+                  Hide Interns
+                </label>
+              </div>
+
+              <div class="control-group-vertical">
+                <label for="filterNoTitle" style="display: flex; align-items: center; gap: 0.5rem;">
+                  <input type="checkbox" id="filterNoTitle" checked style="width: auto;">
+                  Hide No Title
+                </label>
+              </div>
+
+              <div class="control-group-vertical">
+                <label for="showStars" style="display: flex; align-items: center; gap: 0.5rem;">
+                  <input type="checkbox" id="showStars" checked style="width: auto;">
+                  Show Engagement Stars
+                </label>
+              </div>
+
+              <div class="control-group-vertical">
+                <label for="dimMode">Non-highlighted Display:</label>
+                <select id="dimMode">
+                  <option value="dim" selected>Dim</option>
+                  <option value="transparent">Transparent</option>
+                  <option value="hidden">Hidden</option>
+                </select>
+                <small style="color: var(--text-light); display: block; margin-top: 0.25rem;">
+                  Choose how nodes and links that are not part of the current highlight are shown.
+                </small>
+              </div>
+
+              <div class="control-group-vertical">
+                <label>Horizontal Spacing: <span id="horizontalValue">200</span></label>
+                <input type="range" id="horizontalSpacing" min="100" max="400" value="200"
+                       oninput="OrgChart.updateSpacing('horizontal', this.value)">
+              </div>
+              
+              <div class="control-group-vertical">
+                <label>Vertical Spacing: <span id="verticalValue">1.0</span></label>
+                <input type="range" id="verticalSpacing" min="0.5" max="5" step="0.1" value="1" 
+                        oninput="OrgChart.updateSpacing('vertical', this.value)">
+              </div>
+              
+
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Visualization Container -->
+      <div class="viz-container">
+        <div id="treeContainer"></div>
+        
+        <!-- Bottom Controls -->
+        <div class="bottom-controls" id="bottomControls" style="display: none;">
+          <input type="text" id="searchInput" placeholder="Search name or title"
+                 onkeydown="if(event.key==='Enter') OrgChart.searchByNameTitle()" style="max-width: 180px;">
+          <button class="icon-btn" onclick="OrgChart.searchByNameTitle()" title="Search">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+            <button class="icon-btn" onclick="OrgChart.clearHighlight()" title="Clear Search" id="clearSearchBtn" style="display: none;">
+              ✕
+            </button>
+            <button class="icon-btn" onclick="OrgChart.expandOneLevel()" title="Expand One Level">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="8" x2="12" y2="16"></line>
+                <line x1="8" y1="12" x2="16" y2="12"></line>
+              </svg>
+            </button>
+            <button class="icon-btn" onclick="OrgChart.collapseOneLevel()" title="Collapse One Level">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="8" y1="12" x2="16" y2="12"></line>
+              </svg>
+            </button>
+            <button class="icon-btn" onclick="OrgChart.expandAll()" title="Expand All">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="16"></line>
+                <line x1="8" y1="12" x2="16" y2="12"></line>
+              </svg>
+            </button>
+            <button class="icon-btn" onclick="OrgChart.collapseAll()" title="Collapse All">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+          </button>
+          <button class="icon-btn" onclick="OrgChart.resetView()" title="Reset View">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </button>
+          <button class="icon-btn" onclick="OrgChart.downloadCSV()" title="Download CSV">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </button>
+          <button class="icon-btn" onclick="OrgChart.toggleLicenseHighlight()" title="Toggle Licensed Users" id="licenseToggleBtn">
+            🔑
+          </button>
+          <button class="icon-btn" onclick="OrgChart.clearHighlight()" title="Clear Highlight" id="clearHighlightBtn" style="display: none;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" y1="9" x2="9" y2="15"></line>
+              <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="legend" id="legend" style="display: none;">
+          <div id="selectedUserSection" style="display: none;"></div>
+          <div id="legendContent"></div>
+        </div>
+        <div class="stats-panel" id="statsPanel" style="display: none;"></div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Tooltip -->
+  <div class="tooltip" id="tooltip"></div>
+  
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Processing...</div>
+  </div>
+  
+  <!-- D3.js -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  
+  <!-- Application Scripts -->
+  <script src="graph-api.js"></script>
+  <script src="visualization.js"></script>
+  
+  <script>
+    // Initialize application
+    document.addEventListener('DOMContentLoaded', () => {
+      GraphAPI.initialize();
+      OrgChart.initialize();
+    });
+    
+    // Dark mode toggle
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+    }
+    
+    // Toggle collapsible sections
+    function toggleSection(sectionId) {
+      const section = document.getElementById(sectionId);
+      const icon = document.getElementById(sectionId + 'Icon');
+      
+      if (section.style.display === 'none') {
+        section.style.display = 'block';
+        icon.textContent = '▼';
+      } else {
+        section.style.display = 'none';
+        icon.textContent = '▶';
+      }
+    }
+  </script>
+</body>
+</html>
