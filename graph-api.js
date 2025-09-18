@@ -337,7 +337,7 @@ const GraphAPI = (function() {
       return;
     }
 
-    showLoading('Retrieving Microsoft 365 profiles...');
+    showLoading(`Retrieving Microsoft 365 profiles (0 of ${rowCount})...`);
 
     const fieldLabels = selectedFields.map(field => {
       const definition = fieldDefinitions.find(item => item.key === field);
@@ -359,7 +359,9 @@ const GraphAPI = (function() {
           continue;
         }
 
-        updateStatus('fetchStatus', `Fetching profile ${index + 1} of ${rowCount} (${email})...`, 'info');
+        const currentPosition = index + 1;
+        showLoading(`Retrieving Microsoft 365 profiles (${currentPosition} of ${rowCount})...`);
+        updateStatus('fetchStatus', `Fetching profile ${currentPosition} of ${rowCount} (${email})...`, 'info');
 
         try {
           const profile = await fetchUserProfile(email, selectedFields);
