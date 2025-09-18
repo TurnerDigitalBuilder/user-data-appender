@@ -321,6 +321,17 @@ textarea {
   background: var(--border);
 }
 
+.btn-danger {
+  background: var(--danger);
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #c0392b;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
 .btn-group {
   display: flex;
   gap: 0.5rem;
@@ -686,7 +697,15 @@ input[type="checkbox"] {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
   color: var(--text-light);
+}
+
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .table-wrapper {
@@ -697,12 +716,19 @@ input[type="checkbox"] {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: auto;
+  max-height: 100%;
 }
 
 .table-wrapper table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.95rem;
+}
+
+.table-wrapper .select-column {
+  width: 48px;
+  min-width: 48px;
+  text-align: center;
 }
 
 .table-wrapper thead {
@@ -718,6 +744,60 @@ input[type="checkbox"] {
   vertical-align: top;
   color: var(--text);
   min-width: 120px;
+}
+
+.table-wrapper th.select-column,
+.table-wrapper td.select-column {
+  padding: 0.75rem;
+  vertical-align: middle;
+}
+
+.table-wrapper tbody tr {
+  transition: background 0.2s ease;
+}
+
+.table-wrapper tbody tr:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.dark-mode .table-wrapper tbody tr:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.table-wrapper tbody tr.row-selected {
+  background: rgba(0, 102, 204, 0.12);
+}
+
+.dark-mode .table-wrapper tbody tr.row-selected {
+  background: rgba(77, 166, 255, 0.2);
+}
+
+.table-wrapper th.sortable {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.table-wrapper th.sortable .header-label {
+  flex: 1;
+}
+
+.table-wrapper th.sortable .sort-indicator {
+  font-size: 0.75rem;
+  color: var(--text-light);
+}
+
+.table-wrapper th.sortable.sorted-asc,
+.table-wrapper th.sortable.sorted-desc {
+  color: var(--primary);
+}
+
+.table-wrapper th.sortable.sorted-asc .sort-indicator,
+.table-wrapper th.sortable.sorted-desc .sort-indicator {
+  color: var(--primary);
 }
 
 .table-wrapper thead th {
