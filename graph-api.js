@@ -72,24 +72,38 @@ const GraphAPI = (function() {
     }
   }
 
-  function buildLookupIdentifiers(email) {
-    const trimmedEmail = (email || '').trim();
-    if (!trimmedEmail) {
-      return [];
+  function buildLookupContext(emailValue) {
+    const rawEmail = typeof emailValue === 'string' ? emailValue : '';
+    const normalizedEmail = rawEmail.trim();
+
+    if (!normalizedEmail) {
+      return {
+        rawEmail,
+        normalizedEmail: '',
+        identifiers: []
+      };
     }
 
-    const identifiers = new Set();
-    identifiers.add(trimmedEmail);
+    const identifiers = [];
+    identifiers.push(normalizedEmail);
 
-    const normalizedDomain = loginDomain.replace(/^@/, '');
-    const separatorIndex = trimmedEmail.indexOf('@');
-    const localPart = separatorIndex !== -1 ? trimmedEmail.slice(0, separatorIndex) : trimmedEmail;
+    const normalizedDomain = loginDomain ? loginDomain.replace(/^@/, '').toLowerCase() : '';
+    const separatorIndex = normalizedEmail.indexOf('@');
+    const localPart = separatorIndex !== -1 ? normalizedEmail.slice(0, separatorIndex) : normalizedEmail;
 
     if (normalizedDomain && localPart) {
-      identifiers.add(`${localPart}@${normalizedDomain}`);
+      const swappedIdentifier = `${localPart}@${normalizedDomain}`;
+      const lowerSwapped = swappedIdentifier.toLowerCase();
+      if (!identifiers.some(value => value.toLowerCase() === lowerSwapped)) {
+        identifiers.push(swappedIdentifier);
+      }
     }
 
-    return Array.from(identifiers);
+    return {
+      rawEmail,
+      normalizedEmail,
+      identifiers
+    };
   }
 
   function getSelectedFields() {
@@ -425,20 +439,24 @@ const GraphAPI = (function() {
 
     try {
       for (let index = 0; index < rowCount; index++) {
-        const email = DataTable.getCellValue(index, emailColumnIndex).trim();
-        if (!email) {
+        const emailCellValue = DataTable.getCellValue(index, emailColumnIndex);
+        const lookupContext = buildLookupContext(emailCellValue);
+        const normalizedEmail = lookupContext.normalizedEmail;
+        const displayEmail = (lookupContext.rawEmail && lookupContext.rawEmail.trim()) || normalizedEmail;
+
+        if (!normalizedEmail) {
           errors.push(`Row ${index + 1}: missing email address.`);
           continue;
         }
 
         const currentPosition = index + 1;
         showLoading(`Retrieving Microsoft 365 profiles (${currentPosition} of ${rowCount})...`);
-        updateStatus('fetchStatus', `Fetching profile ${currentPosition} of ${rowCount} (${email})...`, 'info');
+        updateStatus('fetchStatus', `Fetching profile ${currentPosition} of ${rowCount} (${displayEmail})...`, 'info');
 
         try {
-          const lookupIdentifiers = buildLookupIdentifiers(email);
+          const lookupIdentifiers = lookupContext.identifiers;
           if (!lookupIdentifiers.length) {
-            errors.push(`${email}: unable to determine lookup identifier.`);
+            errors.push(`${displayEmail}: unable to determine lookup identifier.`);
             continue;
           }
 
@@ -460,9 +478,9 @@ const GraphAPI = (function() {
           if (!profile) {
             const attempts = lookupIdentifiers.join(', ');
             if (lastError) {
-              errors.push(`${email}: ${lastError.message} (tried ${attempts})`);
+              errors.push(`${displayEmail}: ${lastError.message} (tried ${attempts})`);
             } else {
-              errors.push(`${email}: user not found (tried ${attempts})`);
+              errors.push(`${displayEmail}: user not found (tried ${attempts})`);
             }
             continue;
           }
@@ -473,7 +491,7 @@ const GraphAPI = (function() {
             valuesByField[label][index] = formatFieldValue(fieldKey, profile[fieldKey]);
           });
         } catch (error) {
-          errors.push(`${email}: ${error.message}`);
+          errors.push(`${displayEmail}: ${error.message}`);
         }
       }
 
