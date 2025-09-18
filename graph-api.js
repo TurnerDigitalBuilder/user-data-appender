@@ -19,6 +19,78 @@ const GraphAPI = (function() {
   ];
 
   let accessToken = '';
+  let loginDomain = '';
+
+  function decodeJwtPayload(token) {
+    if (!token || typeof token !== 'string') {
+      return null;
+    }
+
+    const parts = token.split('.');
+    if (parts.length < 2) {
+      return null;
+    }
+
+    try {
+      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+      const decoded = atob(padded);
+      return JSON.parse(decoded);
+    } catch (error) {
+      console.warn('Unable to decode access token payload:', error);
+      return null;
+    }
+  }
+
+  function extractDomainFromToken(token) {
+    const payload = decodeJwtPayload(token);
+    if (!payload) {
+      return '';
+    }
+
+    const domainSource = payload.preferred_username || payload.upn || payload.email || '';
+    if (typeof domainSource !== 'string') {
+      return '';
+    }
+
+    const atIndex = domainSource.lastIndexOf('@');
+    if (atIndex === -1) {
+      return '';
+    }
+
+    return domainSource.slice(atIndex + 1).toLowerCase();
+  }
+
+  function updateDetectedDomainHint() {
+    const element = document.getElementById('detectedDomainHint');
+    if (!element) return;
+
+    if (loginDomain) {
+      element.textContent = `Detected sign-in domain: @${loginDomain}`;
+    } else {
+      element.textContent = 'Detected sign-in domain: not detected yet.';
+    }
+  }
+
+  function buildLookupIdentifiers(email) {
+    const trimmedEmail = (email || '').trim();
+    if (!trimmedEmail) {
+      return [];
+    }
+
+    const identifiers = new Set();
+    identifiers.add(trimmedEmail);
+
+    const normalizedDomain = loginDomain.replace(/^@/, '');
+    const separatorIndex = trimmedEmail.indexOf('@');
+    const localPart = separatorIndex !== -1 ? trimmedEmail.slice(0, separatorIndex) : trimmedEmail;
+
+    if (normalizedDomain && localPart) {
+      identifiers.add(`${localPart}@${normalizedDomain}`);
+    }
+
+    return Array.from(identifiers);
+  }
 
   function getSelectedFields() {
     const checkboxContainer = document.getElementById('fieldCheckboxes');
@@ -364,9 +436,34 @@ const GraphAPI = (function() {
         updateStatus('fetchStatus', `Fetching profile ${currentPosition} of ${rowCount} (${email})...`, 'info');
 
         try {
-          const profile = await fetchUserProfile(email, selectedFields);
+          const lookupIdentifiers = buildLookupIdentifiers(email);
+          if (!lookupIdentifiers.length) {
+            errors.push(`${email}: unable to determine lookup identifier.`);
+            continue;
+          }
+
+          let profile = null;
+          let lastError = null;
+
+          for (const identifier of lookupIdentifiers) {
+            try {
+              const result = await fetchUserProfile(identifier, selectedFields);
+              if (result) {
+                profile = result;
+                break;
+              }
+            } catch (error) {
+              lastError = error;
+            }
+          }
+
           if (!profile) {
-            errors.push(`${email}: user not found.`);
+            const attempts = lookupIdentifiers.join(', ');
+            if (lastError) {
+              errors.push(`${email}: ${lastError.message} (tried ${attempts})`);
+            } else {
+              errors.push(`${email}: user not found (tried ${attempts})`);
+            }
             continue;
           }
 
@@ -383,7 +480,9 @@ const GraphAPI = (function() {
       DataTable.applyFieldValues(fieldLabels, valuesByField, appendMode);
 
       if (errors.length) {
-        updateStatus('fetchStatus', `Completed with ${errors.length} issue${errors.length === 1 ? '' : 's'}. Check console for details.`, 'warning');
+        const errorSummary = errors.slice(0, 5).join(' | ');
+        const details = errors.length > 5 ? `${errorSummary} | ...` : errorSummary;
+        updateStatus('fetchStatus', `Completed with ${errors.length} issue${errors.length === 1 ? '' : 's'}. Details: ${details}`, 'warning');
         console.warn('Profile fetch issues:', errors);
       } else {
         updateStatus('fetchStatus', 'Profile data appended successfully.', 'success');
@@ -404,6 +503,8 @@ const GraphAPI = (function() {
     if (tokenInput) {
       tokenInput.addEventListener('input', event => {
         accessToken = event.target.value.trim();
+        loginDomain = accessToken ? extractDomainFromToken(accessToken) : '';
+        updateDetectedDomainHint();
         updateFetchButtonState();
       });
     }
@@ -459,6 +560,7 @@ const GraphAPI = (function() {
       attachEventListeners();
       updateAppendModeUI();
       updateDownloadButtons();
+      updateDetectedDomainHint();
       updateFetchButtonState();
     },
 
