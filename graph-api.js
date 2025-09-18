@@ -445,6 +445,11 @@ const GraphAPI = (function() {
     if (excelButton) {
       excelButton.addEventListener('click', downloadExcel);
     }
+
+    document.addEventListener('datatable:change', () => {
+      updateDownloadButtons();
+      updateFetchButtonState();
+    });
   }
 
   return {
