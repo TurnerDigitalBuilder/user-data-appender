@@ -411,20 +411,10 @@ const GraphAPI = (function() {
 
     showLoading(`Retrieving Microsoft 365 profiles (0 of ${rowCount})...`);
 
-    const tableColumns = DataTable.getColumns();
-    const emailColumnName = tableColumns[emailColumnIndex] || '';
-    const normalizedEmailColumnName = emailColumnName.trim().toLowerCase();
-
-    const fieldLabelMap = selectedFields.map(fieldKey => {
-      const definition = fieldDefinitions.find(item => item.key === fieldKey);
-      const baseLabel = definition ? definition.label : fieldKey;
-      if (baseLabel && baseLabel.trim().toLowerCase() === normalizedEmailColumnName) {
-        return { key: fieldKey, label: `${baseLabel} (Graph)` };
-      }
-      return { key: fieldKey, label: baseLabel };
+    const fieldLabels = selectedFields.map(field => {
+      const definition = fieldDefinitions.find(item => item.key === field);
+      return definition ? definition.label : field;
     });
-
-    const fieldLabels = fieldLabelMap.map(item => item.label);
 
     const valuesByField = fieldLabels.reduce((acc, label) => {
       acc[label] = new Array(rowCount).fill('');
@@ -477,8 +467,10 @@ const GraphAPI = (function() {
             continue;
           }
 
-          fieldLabelMap.forEach(({ key, label }) => {
-            valuesByField[label][index] = formatFieldValue(key, profile[key]);
+          selectedFields.forEach(fieldKey => {
+            const definition = fieldDefinitions.find(item => item.key === fieldKey);
+            const label = definition ? definition.label : fieldKey;
+            valuesByField[label][index] = formatFieldValue(fieldKey, profile[fieldKey]);
           });
         } catch (error) {
           errors.push(`${email}: ${error.message}`);
