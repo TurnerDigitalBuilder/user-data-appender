@@ -200,6 +200,9 @@ const DataTable = (function() {
       const th = document.createElement('th');
       th.classList.add('sortable');
 
+      const headerContent = document.createElement('div');
+      headerContent.className = 'header-content';
+
       const headerLabel = document.createElement('span');
       headerLabel.className = 'header-label';
       headerLabel.textContent = column;
@@ -213,8 +216,9 @@ const DataTable = (function() {
         indicator.textContent = '↕';
       }
 
-      th.appendChild(headerLabel);
-      th.appendChild(indicator);
+      headerContent.appendChild(headerLabel);
+      headerContent.appendChild(indicator);
+      th.appendChild(headerContent);
       th.addEventListener('click', event => {
         event.preventDefault();
         handleSort(columnIndex);
