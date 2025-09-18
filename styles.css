@@ -81,6 +81,7 @@ body {
 .main-content {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -682,6 +683,7 @@ input[type="checkbox"] {
   background: var(--bg);
   display: flex;
   flex-direction: column;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -689,6 +691,7 @@ input[type="checkbox"] {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   padding: 1.5rem;
   gap: 1rem;
 }
