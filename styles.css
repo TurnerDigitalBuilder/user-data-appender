@@ -775,10 +775,13 @@ input[type="checkbox"] {
 .table-wrapper th.sortable {
   cursor: pointer;
   user-select: none;
+}
+
+.table-wrapper th .header-content {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .table-wrapper th.sortable .header-label {
